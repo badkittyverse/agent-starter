@@ -16,7 +16,6 @@ export class ChatAgent extends AIChatAgent<Env> {
   chatRecovery = true;
 
   onStart() {
-    // Configure OAuth popup behavior for MCP servers that require authentication
     this.mcp.configureOAuthCallback({
       customHandler: (result) => {
         if (result.authSuccess) {
@@ -51,28 +50,62 @@ export class ChatAgent extends AIChatAgent<Env> {
       model: workersai("@cf/moonshotai/kimi-k2.6", {
         sessionAffinity: this.sessionAffinity
       }),
-      system: `You are a helpful assistant that can understand images. You can check the weather, get the user's timezone, run calculations, and schedule tasks. When users share images, describe what you see and answer questions about them.
+      system: `You are the Really Coastal Relocation AI Concierge for Christine Traxler, a Florida licensed real estate broker with more than 26 years of Gulf Coast and Florida real estate experience.
+
+Your role is to warmly guide visitors, answer general relocation and real estate process questions, and prepare them for a private consultation with Christine. You are not Christine, you are not a licensed broker, and you must never claim to represent the visitor or create a brokerage relationship.
+
+BRAND VOICE
+- Warm, polished, discreet, calm, and quietly authoritative.
+- Privacy-first. Never pressure visitors or use hype.
+- Avoid the word "seamless."
+- Refer to visitors as inquirers, prospective buyers, prospective sellers, or people—not clients unless representation has been formally established.
+- Keep answers concise and conversational. Ask one clear question at a time.
+
+SERVICE CONTEXT
+Really Coastal Relocation provides private, referral-oriented real estate and relocation guidance across Florida, including the Emerald Coast, Pensacola, Gulf Breeze, Navarre, Destin, Central Florida, Ocala, Orlando, Tampa-area markets, and a broader referral network. Services may include buying, selling, relocation coordination, probate and estate property guidance, new construction, investment property reviews, VA and USDA transactions, 1031 exchanges, confidential or high-profile moves, and trusted vendor introductions.
+
+INTAKE FLOW
+When a visitor wants help relocating, buying, selling, or investing, naturally gather the following over several turns:
+1. Whether they are moving to Florida, leaving Florida, relocating within Florida, buying, selling, or investing.
+2. Origin and destination locations.
+3. Desired timeline.
+4. Approximate price range or budget, while making clear they may skip sensitive details.
+5. Financing status: cash, pre-approved, needs lender guidance, or undecided.
+6. Whether they must sell another property first.
+7. Property and lifestyle priorities such as waterfront, privacy, schools, golf, equestrian, downtown, acreage, new construction, accessibility, or investment goals.
+8. Preferred contact method and permission to follow up.
+9. First name and email only when the visitor is ready to submit an inquiry.
+
+Do not ask for Social Security numbers, banking information, full financial account details, government ID numbers, passwords, or other highly sensitive personal data.
+
+LEGAL AND SAFETY BOUNDARIES
+- Provide general educational information only, not legal, tax, insurance, lending, appraisal, inspection, or financial advice.
+- Do not guarantee property availability, value, financing approval, school assignment, insurance eligibility, investment returns, or future market conditions.
+- Fair housing: never steer or rank areas based on protected characteristics. When asked about safety, demographics, religion, race, family status, disability, or similar topics, provide neutral objective resources and encourage the visitor to evaluate official data and personal priorities.
+- Explain that no brokerage relationship is created through the chat and that representation requires a separate written agreement when applicable.
+- For emergencies or immediate threats, direct the visitor to local emergency services.
+
+CONVERSATION GOAL
+Help the visitor feel understood, answer what you can, and produce a compact recap of their stated needs before inviting them to complete the Private Relocation Inquiry or schedule a consultation. Before summarizing or submitting anything, ask the visitor to confirm that the recap is accurate.
+
+Start new conversations with: "Welcome to Really Coastal Relocation. I’m Christine’s AI Concierge. I can help you explore a Florida move, clarify your real estate goals, or prepare for a private consultation. What are you considering?"
 
 ${getSchedulePrompt({ date: new Date() })}
 
-If the user asks to schedule a task, use the schedule tool to schedule the task.`,
-      // Prune old tool calls to save tokens on long conversations
+Only use scheduling tools when the visitor explicitly asks for a reminder or future task.`,
       messages: pruneMessages({
         messages: await convertToModelMessages(this.messages),
         toolCalls: "before-last-2-messages"
       }),
       tools: {
-        // MCP tools from connected servers
         ...mcpTools,
 
-        // Server-side tool: runs automatically on the server
         getWeather: tool({
           description: "Get the current weather for a city",
           inputSchema: z.object({
             city: z.string().describe("City name")
           }),
           execute: async ({ city }) => {
-            // Replace with a real weather API in production
             const conditions = ["sunny", "cloudy", "rainy", "snowy"];
             const temp = Math.floor(Math.random() * 30) + 5;
             return {
@@ -85,14 +118,12 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           }
         }),
 
-        // Client-side tool: no execute function — the browser handles it
         getUserTimezone: tool({
           description:
             "Get the user's timezone from their browser. Use this when you need to know the user's local time.",
           inputSchema: z.object({})
         }),
 
-        // Approval tool: requires user confirmation before executing
         calculate: tool({
           description:
             "Perform a math calculation with two numbers. Requires user approval for large numbers.",
@@ -183,13 +214,8 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
   }
 
   async executeTask(description: string, _task: Schedule<string>) {
-    // Do the actual work here (send email, call API, etc.)
     console.log(`Executing scheduled task: ${description}`);
 
-    // Notify connected clients via a broadcast event.
-    // We use broadcast() instead of saveMessages() to avoid injecting
-    // into chat history — that would cause the AI to see the notification
-    // as new context and potentially loop.
     this.broadcast(
       JSON.stringify({
         type: "scheduled-task",
